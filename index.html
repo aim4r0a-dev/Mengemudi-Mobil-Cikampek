@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cikampek Driving Racer — 3D Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap');
+
+  :root {
+    --red: #e8001d; --orange: #ff6a00; --yellow: #ffd200;
+    --dark: #0a0a0f; --dark2: #12121a; --dark3: #1a1a28;
+    --text: #e8e8f0; --muted: #6060a0; --green: #00ff88;
+    --blue: #00aaff; --white: #ffffff;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--dark); color:var(--text); font-family:'Rajdhani',sans-serif; overflow:hidden; width:100vw; height:100vh; user-select:none; }
+
+  .screen { display:none; width:100%; height:100%; position:absolute; top:0; left:0; }
+  .screen.active { display:flex; }
+
+  /* ===== MAIN MENU ===== */
+  #menuScreen {
+    flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(160deg,#0a0a0f 0%,#0f0f1e 50%,#0a0a0f 100%); overflow:hidden;
+  }
+  .menu-bg { position:absolute;inset:0;
+    background:repeating-linear-gradient(90deg,rgba(232,0,29,0.04) 0px,rgba(232,0,29,0.04) 1px,transparent 1px,transparent 60px),
+    repeating-linear-gradient(0deg,rgba(232,0,29,0.04) 0px,rgba(232,0,29,0.04) 1px,transparent 1px,transparent 60px);
+    animation:gridMove 8s linear infinite;
+  }
+  @keyframes gridMove { from{background-position:0 0;} to{background-position:60px 60px;} }
+  .logo-wrap { position:relative;text-align:center;margin-bottom:8px;z-index:2; }
+  .logo-sub { font-family:'Rajdhani',sans-serif;color:var(--orange);letter-spacing:6px;font-size:13px;font-weight:600;text-transform:uppercase; }
+  .logo-main { font-family:'Orbitron',monospace;font-size:clamp(28px,5vw,56px);font-weight:900;line-height:1;
+    background:linear-gradient(135deg,#ff6a00 0%,#e8001d 40%,#ffd200 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px;margin:4px 0;
+  }
+  .logo-tagline { color:var(--muted);font-size:12px;letter-spacing:3px;text-transform:uppercase; }
+  .menu-divider { width:200px;height:2px;background:linear-gradient(90deg,transparent,var(--red),transparent);margin:20px auto; }
+  .btn-menu { font-family:'Orbitron',monospace;font-size:14px;font-weight:700;letter-spacing:3px;padding:14px 44px;border:none;cursor:pointer;position:relative;overflow:hidden;text-transform:uppercase;transition:all 0.2s;margin:6px;z-index:2; }
+  .btn-primary { background:linear-gradient(90deg,var(--red),var(--orange));color:#fff;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%); }
+  .btn-primary:hover { transform:scale(1.04);filter:brightness(1.2); }
+  .btn-secondary { background:transparent;color:var(--orange);border:1px solid var(--orange);clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%); }
+  .btn-secondary:hover { background:rgba(255,106,0,0.15); }
+  .menu-stats { position:absolute;bottom:20px;display:flex;gap:40px;z-index:2;font-size:12px;color:var(--muted);letter-spacing:2px; }
+  .menu-stats span b { color:var(--yellow);font-family:'Orbitron',monospace; }
+
+  /* ===== CAR SELECT ===== */
+  #carScreen { flex-direction:column;background:var(--dark);overflow:hidden; }
+  .cs-header { padding:20px 30px 10px;border-bottom:1px solid rgba(232,0,29,0.3);display:flex;align-items:center;justify-content:space-between; }
+  .cs-title { font-family:'Orbitron',monospace;font-size:20px;color:var(--red);letter-spacing:3px; }
+  .cs-subtitle { color:var(--muted);font-size:12px;letter-spacing:2px; }
+  .cs-body { display:flex;flex:1;overflow:hidden; }
+  .car-list { width:260px;overflow-y:auto;border-right:1px solid rgba(255,255,255,0.05);padding:10px;scrollbar-width:thin;scrollbar-color:var(--red) transparent; }
+  .car-item { padding:12px 14px;margin-bottom:6px;cursor:pointer;border:1px solid rgba(255,255,255,0.06);background:var(--dark2);transition:all 0.15s;position:relative;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%); }
+  .car-item:hover { border-color:rgba(232,0,29,0.5);background:var(--dark3); }
+  .car-item.selected { border-color:var(--red);background:rgba(232,0,29,0.08); }
+  .car-item.selected::before { content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red); }
+  .car-item-name { font-family:'Orbitron',monospace;font-size:11px;color:var(--text);font-weight:700; }
+  .car-item-brand { font-size:11px;color:var(--muted);margin-top:2px; }
+  .car-item-class { position:absolute;right:10px;top:12px;font-size:9px;padding:2px 6px;font-family:'Orbitron',monospace;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%); }
+  .class-S { background:rgba(232,0,29,0.3);color:var(--red);border:1px solid var(--red); }
+  .class-A { background:rgba(255,106,0,0.3);color:var(--orange);border:1px solid var(--orange); }
+  .class-B { background:rgba(255,210,0,0.3);color:var(--yellow);border:1px solid var(--yellow); }
+  .class-C { background:rgba(0,170,255,0.2);color:var(--blue);border:1px solid var(--blue); }
+  .car-preview { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;position:relative; }
+  #carCanvas3D { width:360px;height:220px;border-radius:4px; }
+  .car-info { text-align:center;margin-top:16px; }
+  .car-info-name { font-family:'Orbitron',monospace;font-size:20px;font-weight:900;background:linear-gradient(90deg,var(--orange),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent; }
+  .car-info-desc { color:var(--muted);font-size:12px;margin-top:4px;letter-spacing:1px; }
+  .car-stats-bars { width:100%;max-width:320px;margin:16px auto 0; }
+  .stat-row { display:flex;align-items:center;margin-bottom:8px;gap:10px; }
+  .stat-label { font-size:11px;color:var(--muted);width:80px;text-align:right;letter-spacing:1px;text-transform:uppercase; }
+  .stat-bar-bg { flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden; }
+  .stat-bar-fill { height:100%;border-radius:3px;transition:width 0.4s ease; }
+  .stat-val { font-family:'Orbitron',monospace;font-size:10px;color:var(--yellow);width:26px;text-align:right; }
+  .cs-footer { padding:14px 30px;border-top:1px solid rgba(232,0,29,0.2);display:flex;align-items:center;justify-content:space-between; }
+  .coins-display { display:flex;align-items:center;gap:8px;font-family:'Orbitron',monospace;font-size:16px;color:var(--yellow); }
+
+  /* ===== UPGRADE ===== */
+  #upgradeScreen { flex-direction:column;background:var(--dark); }
+  .ug-header { padding:18px 30px 12px;border-bottom:1px solid rgba(232,0,29,0.2);display:flex;align-items:center;justify-content:space-between; }
+  .ug-title { font-family:'Orbitron',monospace;font-size:18px;color:var(--red);letter-spacing:3px; }
+  .ug-body { flex:1;overflow-y:auto;padding:20px 30px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;align-content:start; }
+  .upgrade-card { background:var(--dark2);border:1px solid rgba(255,255,255,0.07);padding:18px;position:relative;transition:border-color 0.2s;clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%); }
+  .upgrade-card:hover { border-color:rgba(232,0,29,0.4); }
+  .ug-card-icon { font-size:28px;margin-bottom:8px; }
+  .ug-card-name { font-family:'Orbitron',monospace;font-size:13px;color:var(--text);font-weight:700; }
+  .ug-card-desc { font-size:12px;color:var(--muted);margin:4px 0 12px;line-height:1.4; }
+  .ug-level-row { display:flex;align-items:center;gap:6px;margin-bottom:12px; }
+  .ug-pip { width:18px;height:8px;border-radius:2px;background:rgba(255,255,255,0.1);transition:background 0.2s; }
+  .ug-pip.filled { background:var(--red); }
+  .ug-pip.max { background:var(--yellow); }
+  .ug-btn { font-family:'Orbitron',monospace;font-size:11px;padding:8px 18px;border:none;cursor:pointer;background:linear-gradient(90deg,var(--red),var(--orange));color:#fff;letter-spacing:2px;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 0.2s;display:flex;align-items:center;gap:6px; }
+  .ug-btn:hover { filter:brightness(1.2); }
+  .ug-btn:disabled { background:rgba(255,255,255,0.1);color:var(--muted);cursor:not-allowed;filter:none; }
+  .ug-btn .cost { color:var(--yellow); }
+  .ug-footer { padding:14px 30px;border-top:1px solid rgba(232,0,29,0.2);display:flex;justify-content:space-between;align-items:center; }
+
+  /* ===== GAME SCREEN ===== */
+  #gameScreen { position:relative;background:#000; }
+  #gameCanvas { display:block;width:100%;height:100%; }
+
+  .hud { position:absolute;top:0;left:0;right:0;pointer-events:none;padding:12px 18px;display:flex;justify-content:space-between;align-items:flex-start; }
+  .hud-left,.hud-right,.hud-center { display:flex;flex-direction:column;gap:4px; }
+  .hud-center { align-items:center; }
+  .speed-display { font-family:'Orbitron',monospace;font-size:48px;font-weight:900;line-height:1;color:var(--white);text-shadow:0 0 20px rgba(232,0,29,0.8); }
+  .speed-unit { font-size:11px;color:var(--muted);letter-spacing:3px;text-align:center; }
+  .hud-stat { font-family:'Orbitron',monospace;font-size:13px;color:var(--text);letter-spacing:1px; }
+  .hud-stat span { color:var(--yellow); }
+  .hud-stat-label { font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase; }
+  .nitro-bar-wrap { width:120px; }
+  .nitro-bar-bg { height:6px;background:rgba(0,170,255,0.15);border-radius:3px;overflow:hidden; }
+  .nitro-bar-fill { height:100%;background:linear-gradient(90deg,#0088ff,#00ffff);border-radius:3px;transition:width 0.1s; }
+  .hud-km { font-family:'Orbitron',monospace;font-size:18px;color:var(--green);letter-spacing:2px; }
+  .combo-display { font-family:'Orbitron',monospace;font-size:20px;color:var(--orange);opacity:0;transition:opacity 0.2s;text-shadow:0 0 10px var(--orange); }
+  .combo-display.show { opacity:1; }
+
+  .game-overlay { position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;display:none; }
+  .game-overlay.active { display:flex; }
+  .overlay-title { font-family:'Orbitron',monospace;font-size:36px;font-weight:900;color:var(--red);letter-spacing:4px;margin-bottom:30px; }
+  .overlay-row { display:flex;gap:12px;flex-wrap:wrap;justify-content:center; }
+
+  .toast { position:absolute;top:80px;left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;font-size:14px;padding:8px 20px;background:rgba(0,0,0,0.7);border:1px solid var(--red);color:var(--red);clip-path:polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%);opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:20;white-space:nowrap; }
+  .toast.show { opacity:1; }
+
+  .mobile-controls { position:absolute;bottom:0;left:0;right:0;height:160px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 12px 16px;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 100%); }
+  .ctrl-steer { display:flex;gap:10px;align-items:flex-end;pointer-events:all; }
+  .ctrl-btn { display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:all;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;transition:transform 0.07s,filter 0.07s;border:none;background:none;padding:0; }
+  .ctrl-btn:active { transform:scale(0.93); }
+  .ctrl-arrow { width:72px;height:72px;border-radius:18px;background:rgba(255,255,255,0.10);border:1.5px solid rgba(255,255,255,0.22);font-size:26px;color:#fff; }
+  .ctrl-arrow.pressed,.ctrl-arrow:active { background:rgba(232,0,29,0.35);border-color:var(--red);filter:drop-shadow(0 0 8px var(--red)); }
+  .ctrl-pedals { display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:all; }
+  .ctrl-nitro { width:80px;height:44px;border-radius:12px;background:rgba(0,170,255,0.18);border:1.5px solid var(--blue);color:var(--blue);font-size:11px;font-family:'Orbitron',monospace;letter-spacing:1.5px;font-weight:700; }
+  .ctrl-nitro.pressed,.ctrl-nitro:active { background:rgba(0,170,255,0.45);filter:drop-shadow(0 0 10px var(--blue)); }
+  .ctrl-gas { width:80px;height:62px;border-radius:14px;background:rgba(0,255,80,0.14);border:1.5px solid #00cc44;color:#00ff66;font-size:11px;font-family:'Orbitron',monospace;letter-spacing:1px;font-weight:700;flex-direction:column;gap:2px; }
+  .ctrl-gas .pedal-icon { font-size:20px;line-height:1; }
+  .ctrl-gas.pressed,.ctrl-gas:active { background:rgba(0,255,80,0.38);filter:drop-shadow(0 0 10px #00ff66);transform:scale(0.93) translateY(2px); }
+  .ctrl-brake { width:80px;height:62px;border-radius:14px;background:rgba(255,30,30,0.16);border:1.5px solid var(--red);color:#ff4444;font-size:11px;font-family:'Orbitron',monospace;letter-spacing:1px;font-weight:700;flex-direction:column;gap:2px; }
+  .ctrl-brake .pedal-icon { font-size:20px;line-height:1; }
+  .ctrl-brake.pressed,.ctrl-brake:active { background:rgba(255,30,30,0.42);filter:drop-shadow(0 0 10px var(--red));transform:scale(0.93) translateY(2px); }
+  .throttle-strip { position:absolute;bottom:0;left:0;right:0;height:4px;pointer-events:none;display:flex; }
+  .throttle-bar { height:100%;transition:width 0.08s linear; }
+  .throttle-bar.gas { background:#00ff66; }
+  .throttle-bar.brake { background:var(--red);margin-left:auto; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--red);border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- MAIN MENU -->
+<div id="menuScreen" class="screen active">
+  <div class="menu-bg"></div>
+  <div class="logo-wrap">
+    <div class="logo-sub">🏁 Indonesia Motorsport Series</div>
+    <div class="logo-main">CIKAMPEK</div>
+    <div class="logo-main" style="font-size:clamp(14px,2.5vw,26px);margin-top:-6px;letter-spacing:6px;">DRIVING RACER</div>
+    <div class="logo-tagline">SIMULATOR — TOL TRANS JAWA EDITION · 3D EDITION</div>
+  </div>
+  <div class="menu-divider"></div>
+  <div style="display:flex;flex-direction:column;align-items:center;z-index:2;">
+    <button class="btn-menu btn-primary" onclick="showScreen('carScreen')">🚗 MULAI BALAPAN</button>
+    <button class="btn-menu btn-secondary" onclick="showScreen('upgradeScreen')">⚙️ UPGRADE MOBIL</button>
+  </div>
+  <div class="menu-stats">
+    <div>BEST SCORE <b id="bestScoreDisplay">0</b></div>
+    <div>TOTAL KOIN <b id="totalCoinsDisplay">0</b></div>
+    <div>JARAK TERTINGGI <b id="bestDistDisplay">0</b> KM</div>
+  </div>
+</div>
+
+<!-- CAR SELECT -->
+<div id="carScreen" class="screen">
+  <div class="cs-header">
+    <div>
+      <div class="cs-title">PILIH MOBIL</div>
+      <div class="cs-subtitle">PILIH KENDARAAN UNTUK BALAPAN DI TOL CIKAMPEK</div>
+    </div>
+    <button class="btn-menu btn-secondary" onclick="showScreen('menuScreen')" style="margin:0;padding:8px 20px;font-size:11px;">← KEMBALI</button>
+  </div>
+  <div class="cs-body">
+    <div class="car-list" id="carList"></div>
+    <div class="car-preview">
+      <canvas id="carCanvas3D" width="360" height="220"></canvas>
+      <div class="car-info">
+        <div class="car-info-name" id="previewName">—</div>
+        <div class="car-info-desc" id="previewDesc">—</div>
+      </div>
+      <div class="car-stats-bars" id="statsBars"></div>
+    </div>
+  </div>
+  <div class="cs-footer">
+    <div class="coins-display">💰 <span id="csCoins">0</span> KOIN</div>
+    <button class="btn-menu btn-primary" onclick="startGame()" style="margin:0;">MULAI BALAPAN →</button>
+  </div>
+</div>
+
+<!-- UPGRADE -->
+<div id="upgradeScreen" class="screen">
+  <div class="ug-header">
+    <div>
+      <div class="ug-title">⚙️ UPGRADE GARAGE</div>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:2px;">TINGKATKAN PERFORMA MOBILMU</div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div class="coins-display">💰 <span id="ugCoins">0</span></div>
+      <button class="btn-menu btn-secondary" onclick="showScreen('menuScreen')" style="margin:0;padding:8px 18px;font-size:11px;">← MENU</button>
+      <button class="btn-menu btn-primary" onclick="showScreen('carScreen')" style="margin:0;padding:8px 18px;font-size:11px;">PILIH MOBIL →</button>
+    </div>
+  </div>
+  <div class="ug-body" id="upgradeBody"></div>
+  <div class="ug-footer">
+    <div style="font-size:12px;color:var(--muted);">Upgrade berlaku untuk semua mobil yang dipilih</div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen" class="screen">
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="hud">
+    <div class="hud-left">
+      <div class="hud-stat-label">Kecepatan</div>
+      <div class="speed-display" id="hudSpeed">0</div>
+      <div class="speed-unit">KM/H</div>
+      <div style="margin-top:8px;">
+        <div class="hud-stat-label">Nitro</div>
+        <div class="nitro-bar-wrap"><div class="nitro-bar-bg"><div class="nitro-bar-fill" id="hudNitro" style="width:100%"></div></div></div>
+      </div>
+    </div>
+    <div class="hud-center">
+      <div class="hud-stat-label">Jarak</div>
+      <div class="hud-km" id="hudDist">0.00 KM</div>
+      <div style="margin-top:6px;">
+        <div class="hud-stat-label">Skor</div>
+        <div class="hud-stat">SKOR: <span id="hudScore">0</span></div>
+      </div>
+      <div class="combo-display" id="hudCombo">COMBO x2!</div>
+    </div>
+    <div class="hud-right" style="align-items:flex-end;">
+      <div class="hud-stat-label">Koin</div>
+      <div class="hud-stat">💰 <span id="hudCoins">0</span></div>
+      <div style="margin-top:6px;">
+        <div class="hud-stat-label">Gear</div>
+        <div class="hud-stat">GEAR: <span id="hudGear">1</span></div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+        <div id="indGas" style="font-family:Orbitron,monospace;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #00cc44;color:#00ff66;background:rgba(0,200,60,0.08);letter-spacing:1px;opacity:0.3;transition:opacity 0.08s,background 0.08s;">GAS</div>
+        <div id="indBrake" style="font-family:Orbitron,monospace;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid #e8001d;color:#ff4444;background:rgba(232,0,29,0.08);letter-spacing:1px;opacity:0.3;transition:opacity 0.08s,background 0.08s;">REM</div>
+      </div>
+      <button class="btn-menu btn-secondary" onclick="togglePause()" style="margin:8px 0 0;padding:6px 14px;font-size:10px;pointer-events:all;">⏸ PAUSE</button>
+    </div>
+  </div>
+
+  <div class="toast" id="gameToast">NEAR MISS!</div>
+
+  <div class="game-overlay" id="pauseOverlay">
+    <div class="overlay-title">⏸ PAUSED</div>
+    <div class="overlay-row">
+      <button class="btn-menu btn-primary" onclick="togglePause()">▶ LANJUTKAN</button>
+      <button class="btn-menu btn-secondary" onclick="endGame()">🏁 SELESAI</button>
+    </div>
+  </div>
+
+  <div class="game-overlay" id="gameOverOverlay">
+    <div class="overlay-title">💥 GAME OVER</div>
+    <div id="goStats" style="text-align:center;margin-bottom:24px;line-height:2;color:var(--text)"></div>
+    <div class="overlay-row">
+      <button class="btn-menu btn-primary" onclick="restartGame()">🔄 MAIN LAGI</button>
+      <button class="btn-menu btn-secondary" onclick="endGame()">🏠 MENU</button>
+    </div>
+  </div>
+
+  <div class="mobile-controls" id="mobileControls">
+    <div class="ctrl-steer">
+      <button class="ctrl-btn ctrl-arrow" id="btnLeft" ontouchstart="setKey('left',true)" ontouchend="setKey('left',false)" onmousedown="setKey('left',true)" onmouseup="setKey('left',false)">◀</button>
+      <button class="ctrl-btn ctrl-arrow" id="btnRight" ontouchstart="setKey('right',true)" ontouchend="setKey('right',false)" onmousedown="setKey('right',true)" onmouseup="setKey('right',false)">▶</button>
+    </div>
+    <div class="ctrl-pedals">
+      <button class="ctrl-btn ctrl-nitro" id="btnNitro" ontouchstart="setKey('nitro',true)" ontouchend="setKey('nitro',false)" onmousedown="setKey('nitro',true)" onmouseup="setKey('nitro',false)">💨 NITRO</button>
+      <button class="ctrl-btn ctrl-gas" id="btnGas" ontouchstart="setKey('gas',true)" ontouchend="setKey('gas',false)" onmousedown="setKey('gas',true)" onmouseup="setKey('gas',false)"><span class="pedal-icon">🟢</span>GAS</button>
+      <button class="ctrl-btn ctrl-brake" id="btnBrake" ontouchstart="setKey('brake',true)" ontouchend="setKey('brake',false)" onmousedown="setKey('brake',true)" onmouseup="setKey('brake',false)"><span class="pedal-icon">🔴</span>REM</button>
+    </div>
+  </div>
+  <div class="throttle-strip">
+    <div class="throttle-bar gas" id="gasBar" style="width:0%"></div>
+    <div class="throttle-bar brake" id="brakeBar" style="width:0%"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const CARS = [
+  { id:'civic',   name:'Honda Civic Type R',      brand:'Honda',      desc:'Raja jalanan JDM yang garang',        class:'A', color:0xcc0000, accent:0xffffff, speed:82, accel:78, handling:85, top:240 },
+  { id:'supra',   name:'Toyota Supra A90',         brand:'Toyota',     desc:'Legenda yang bangkit kembali',       class:'A', color:0x1a1aff, accent:0xffdd00, speed:88, accel:82, handling:80, top:260 },
+  { id:'huracan', name:'Lamborghini Huracán',      brand:'Lamborghini',desc:'Banteng Italia yang liar',           class:'S', color:0xff8800, accent:0x000000, speed:96, accel:94, handling:88, top:325 },
+  { id:'r35',     name:'Nissan GT-R R35',          brand:'Nissan',     desc:'Godzilla dari Jepang',               class:'S', color:0x333355, accent:0xff0033, speed:94, accel:91, handling:90, top:315 },
+  { id:'ferrari', name:'Ferrari F8 Tributo',       brand:'Ferrari',    desc:'Merah Maranello paling liar',        class:'S', color:0xcc0000, accent:0xffcc00, speed:97, accel:95, handling:87, top:340 },
+  { id:'porsche', name:'Porsche 911 GT3',          brand:'Porsche',    desc:'Precision German engineering',       class:'A', color:0xffffff, accent:0x333333, speed:90, accel:87, handling:95, top:318 },
+  { id:'m4',      name:'BMW M4 Competition',       brand:'BMW',        desc:'The Ultimate Driving Machine',       class:'A', color:0x1155aa, accent:0xffffff, speed:87, accel:84, handling:89, top:290 },
+  { id:'hilux',   name:'Toyota Hilux Double Cab',  brand:'Toyota',     desc:'Pickup tangguh, tampak belakang khas',  class:'B', color:0x2b3a5e, accent:0xc8ccd2, speed:68, accel:66, handling:72, top:190, len:5.3, width:1.9, h:1.9 },
+  { id:'gtr86',   name:'Toyota GR86',              brand:'Toyota',     desc:'Drifter jalanan yang lincah',        class:'B', color:0xcc3300, accent:0xffffff, speed:75, accel:72, handling:92, top:220 },
+  { id:'evo',     name:'Mitsubishi Lancer Evo X',  brand:'Mitsubishi', desc:'AWD monster reli',                   class:'B', color:0x0044cc, accent:0xffffff, speed:78, accel:80, handling:88, top:245 },
+  { id:'brz',     name:'Subaru BRZ',               brand:'Subaru',     desc:'Ringan dan lincah',                  class:'B', color:0x1155cc, accent:0xffffff, speed:73, accel:70, handling:91, top:215 },
+  { id:'vios',    name:'Toyota Vios GR Sport',     brand:'Toyota',     desc:'Mobil rakyat jiwa balap',            class:'C', color:0xcc1111, accent:0xffffff, speed:65, accel:62, handling:75, top:190 },
+  { id:'brio',    name:'Honda Brio RS',             brand:'Honda',      desc:'Kecil tapi bernyali besar',         class:'C', color:0xff6600, accent:0xffffff, speed:60, accel:60, handling:72, top:175 },
+];
+
+const UPGRADES = [
+  { id:'engine',   name:'Mesin Turbo',     icon:'⚡', desc:'Tingkatkan tenaga mesin. Akselerasi & top speed meningkat drastis.', maxLevel:10, costBase:300,  effect:'Tenaga +10% per level' },
+  { id:'handling', name:'Suspensi Sport',  icon:'🔧', desc:'Handling & stabilitas lebih presisi di kecepatan tinggi.',           maxLevel:10, costBase:250,  effect:'Handling +8% per level' },
+  { id:'speed',    name:'Unlimited Boost', icon:'🚀', desc:'Hapus batas kecepatan. Nitro lebih kuat dan bertahan lebih lama.',   maxLevel:10, costBase:400,  effect:'Top speed tidak terbatas!' },
+  { id:'nitro',    name:'Tangki Nitro XL', icon:'💨', desc:'Kapasitas nitro lebih besar dan regenerasi lebih cepat.',            maxLevel:10, costBase:350,  effect:'Nitro +15% per level' },
+  { id:'brake',    name:'Rem Karbon',      icon:'🛑', desc:'Pengereman lebih responsif, kurangi risiko tabrakan.',               maxLevel:5,  costBase:200,  effect:'Brake response +20% per level' },
+  { id:'armor',    name:'Armor Rangka',    icon:'🛡️', desc:'Tambahan nyawa. Bertahan dari 1 tabrakan tanpa game over.',          maxLevel:5,  costBase:500,  effect:'+1 kehidupan per 2 level' },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = { coins:2000, bestScore:0, bestDist:0, selectedCar:'civic', upgrades:{engine:0,handling:0,speed:0,nitro:0,brake:0,armor:0} };
+function loadState() { try { const s=localStorage.getItem('cikampek3D'); if(s) { const o=JSON.parse(s); state={...state,...o,upgrades:{...state.upgrades,...(o.upgrades||{})}}; } } catch(e){} if(!CARS.some(c=>c.id===state.selectedCar)) state.selectedCar=CARS[0].id; }
+function saveState() { try { localStorage.setItem('cikampek3D', JSON.stringify(state)); } catch(e){} }
+loadState();
+
+// ============================================================
+// SCREEN MANAGEMENT
+// ============================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id!=='carScreen') stopPreview();
+  if(id==='carScreen') { renderCarList(); requestAnimationFrame(()=>{ if(!document.getElementById('carScreen').classList.contains('active')) return; setPreviewCar(state.selectedCar); startPreview(); }); }
+  if(id==='upgradeScreen') renderUpgrades();
+  if(id==='menuScreen') updateMenuStats();
+}
+function updateMenuStats() {
+  document.getElementById('bestScoreDisplay').textContent = state.bestScore.toLocaleString();
+  document.getElementById('totalCoinsDisplay').textContent = state.coins.toLocaleString();
+  document.getElementById('bestDistDisplay').textContent = state.bestDist.toFixed(1);
+}
+
+// ============================================================
+// SHARED ASSETS & HELPERS (dibuat sekali, dipakai ulang)
+// ============================================================
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+function radialTex(stops, size = 128) {
+  return canvasTex(size, size, (x, w, h) => {
+    const g = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    stops.forEach(([o, col]) => g.addColorStop(o, col));
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+  });
+}
+
+const SHARED = { ready: false };
+function shared() {
+  if (SHARED.ready) return SHARED;
+  const S = SHARED;
+  S.planeGeo = new THREE.PlaneGeometry(1, 1);
+  // bayangan bulat murah (pengganti shadow map)
+  S.blobMat = new THREE.MeshBasicMaterial({
+    map: radialTex([[0, 'rgba(0,0,0,0.85)'], [0.55, 'rgba(0,0,0,0.45)'], [1, 'rgba(0,0,0,0)']]),
+    transparent: true, depthWrite: false
+  });
+  // cahaya lampu depan di jalan (gradasi: terang dekat mobil, hilang di depan)
+  S.beamMat = new THREE.MeshBasicMaterial({
+    map: canvasTex(128, 256, (x, w, h) => {
+      const g = x.createLinearGradient(0, h, 0, 0);
+      g.addColorStop(0, 'rgba(255,245,200,0.55)'); g.addColorStop(0.6, 'rgba(255,240,190,0.16)'); g.addColorStop(1, 'rgba(255,240,190,0)');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+      x.globalCompositeOperation = 'destination-in';
+      const gx = x.createLinearGradient(0, 0, w, 0);
+      gx.addColorStop(0, 'rgba(0,0,0,0)'); gx.addColorStop(0.3, 'rgba(0,0,0,1)'); gx.addColorStop(0.7, 'rgba(0,0,0,1)'); gx.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = gx; x.fillRect(0, 0, w, h);
+    }),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  // plat nomor umum
+  S.plateMat = new THREE.MeshBasicMaterial({
+    map: canvasTex(256, 64, (x, w, h) => {
+      x.fillStyle = '#121212'; x.fillRect(0, 0, w, h);
+      x.strokeStyle = '#d8d8d8'; x.lineWidth = 3; x.strokeRect(3, 3, w - 6, h - 6);
+      x.fillStyle = '#f2f2f2'; x.font = 'bold 38px Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText('B 1234 CKP', w / 2, h / 2 + 2);
+    })
+  });
+  // plat "HILUX" putih (seperti foto referensi)
+  S.hiluxPlateMat = new THREE.MeshBasicMaterial({
+    map: canvasTex(256, 64, (x, w, h) => {
+      x.fillStyle = '#f4f4f4'; x.fillRect(0, 0, w, h);
+      x.fillStyle = '#111'; x.font = '900 40px Arial Black, Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText('HILUX', w / 2, h / 2 + 2);
+    })
+  });
+  // tulisan TOYOTA (kiri) & HILUX (kanan) di bak belakang
+  S.tailgateTextMat = new THREE.MeshBasicMaterial({
+    map: canvasTex(700, 80, (x, w, h) => {
+      x.fillStyle = '#b9bec7'; x.font = 'bold 46px Arial, sans-serif'; x.textBaseline = 'middle';
+      x.textAlign = 'left'; x.fillText('TOYOTA', 8, h / 2);
+      x.textAlign = 'right'; x.fillText('HILUX', w - 8, h / 2);
+    }),
+    transparent: true
+  });
+  S.flameMat = new THREE.MeshBasicMaterial({ color: 0x33aaff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending });
+  S.flameGeo = (() => { const g = new THREE.ConeGeometry(0.11, 1.0, 8, 1, true); g.translate(0, 0.5, 0); g.rotateX(Math.PI / 2); return g; })(); // ujung api mengarah ke +Z (belakang mobil)
+  S.ready = true;
+  return S;
+}
+
+function keep(m, geo = true, mat = true) { if (geo) m.userData.keepGeo = true; if (mat) m.userData.keepMat = true; return m; }
+function makeBlob(w, l) {
+  const S = shared();
+  const m = new THREE.Mesh(S.planeGeo, S.blobMat);
+  m.rotation.x = -Math.PI / 2; m.scale.set(w, l, 1); m.position.y = 0.03;
+  return keep(m);
+}
+function disposeObject(o) {
+  o.traverse(m => {
+    if (!m.isMesh) return;
+    if (!m.userData.keepGeo && m.geometry) m.geometry.dispose();
+    if (!m.userData.keepMat && m.material) {
+      (Array.isArray(m.material) ? m.material : [m.material]).forEach(mt => { if (mt.map) mt.map.dispose(); mt.dispose(); });
+    }
+  });
+}
+
+// ============================================================
+// MODEL MOBIL
+// Semua mobil dibangun dengan "depan" di -Z (arah mobil melaju) dan
+// "belakang" di +Z, jadi kamera chase di belakang melihat BAGIAN BELAKANG
+// mobil (lampu belakang, plat, bumper) — bukan moncongnya.
+// Titik nol Y = permukaan tanah.
+// ============================================================
+function buildCarMesh3D(carData) {
+  if (carData.id === 'hilux') return buildHiluxMesh3D(carData);
+  const S = shared();
+  const outer = new THREE.Group();
+  const g = new THREE.Group();          // dibangun dgn depan +Z lalu diputar 180° => depan -Z
+  g.rotation.y = Math.PI; g.position.y = 0.32;
+  outer.add(g);
+
+  const P = o => new THREE.MeshPhongMaterial(o);
+  const bodyMat = P({ color: carData.color, shininess: 120, specular: 0x444444 });
+  const glassMat = P({ color: 0x88ccff, transparent: true, opacity: 0.55, shininess: 200 });
+  const wheelMat = P({ color: 0x111111, shininess: 30 });
+  const rimMat = P({ color: 0xaaaaaa, shininess: 200 });
+  const hubMat = P({ color: 0x888888 });
+  const lightFMat = P({ color: 0xffffcc, emissive: 0xffffaa, emissiveIntensity: 0.6 });
+  const lightRMat = P({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.9 });
+  const stripeMat = P({ color: carData.accent });
+  const blackMat = P({ color: 0x111111 });
+  const chromeMat = P({ color: 0xcfd3d8, shininess: 200 });
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const add = (geo, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; g.add(m); return m; };
+
+  add(B(1.8, 0.55, 3.8), bodyMat, 0, 0.3, 0);                 // body
+  add(B(1.55, 0.42, 2.0), bodyMat, 0, 0.78, -0.1);            // kabin
+  add(B(1.4, 0.38, 0.06), glassMat, 0, 0.78, 0.9, -0.25);     // kaca depan
+  add(B(1.35, 0.32, 0.06), glassMat, 0, 0.72, -1.05, 0.25);   // kaca belakang
+  const swGeo = B(0.06, 0.30, 1.5);
+  [-0.78, 0.78].forEach(x => add(swGeo, glassMat, x, 0.80, -0.05));
+  add(B(0.12, 0.01, 3.82), stripeMat, 0, 0.581, 0);           // strip balap
+  // lampu depan
+  const hGeo = B(0.35, 0.12, 0.08);
+  [-0.7, 0.7].forEach(x => add(hGeo, lightFMat, x, 0.34, 1.92));
+  // lampu belakang + bar LED penghubung
+  const tGeo = B(0.42, 0.12, 0.08);
+  [-0.68, 0.68].forEach(x => add(tGeo, lightRMat, x, 0.34, -1.92));
+  add(B(0.9, 0.04, 0.05), lightRMat, 0, 0.42, -1.93);
+  // plat nomor belakang
+  const plate = new THREE.Mesh(S.planeGeo, S.plateMat); plate.scale.set(0.5, 0.13, 1); plate.position.set(0, 0.16, -1.945); plate.rotation.y = Math.PI; keep(plate); g.add(plate);
+  // bumper depan & belakang
+  add(B(1.9, 0.15, 0.12), blackMat, 0, 0.08, 1.97);
+  add(B(1.9, 0.15, 0.14), blackMat, 0, 0.08, -1.97);
+  // knalpot
+  const exGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.2, 10);
+  [-0.55, 0.55].forEach(x => add(exGeo, chromeMat, x, -0.04, -2.0, Math.PI / 2));
+  // spoiler belakang
+  add(B(1.6, 0.08, 0.3), blackMat, 0, 1.05, -1.85);
+  const spLGeo = B(0.07, 0.22, 0.28);
+  [-0.75, 0.75].forEach(x => add(spLGeo, blackMat, x, 0.98, -1.85));
+  // roda
+  const wGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 16);
+  const rGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.23, 8);
+  const hbGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.25, 8);
+  [[-0.95, -1.1], [-0.95, 1.1], [0.95, -1.1], [0.95, 1.1]].forEach(([x, z]) => {
+    [[wGeo, wheelMat], [rGeo, rimMat], [hbGeo, hubMat]].forEach(([geo, mat]) => {
+      const m = add(geo, mat, x, 0, z); m.rotation.z = Math.PI / 2;
+    });
+  });
+  add(B(1.75, 0.08, 3.7), blackMat, 0, -0.02, 0);             // dasar
+
+  outer.userData = { tailMat: lightRMat, exhaustX: [-0.55, 0.55], exhaustY: 0.28, exhaustZ: 2.1, len: 3.8 };
+  return outer;
+}
+
+// Toyota Hilux Double Cab — dibuat mengikuti foto tampak belakang (gambar ke-2):
+// bak terbuka + tailgate, lampu belakang vertikal, bumper krom, plat "HILUX".
+function buildHiluxMesh3D(c) {
+  const S = shared();
+  const outer = new THREE.Group();
+  const g = new THREE.Group();
+  g.rotation.y = Math.PI;               // depan +Z di sini, lalu diputar => depan -Z
+  outer.add(g);
+
+  const P = o => new THREE.MeshPhongMaterial(o);
+  const body = P({ color: c.color, shininess: 90, specular: 0x666666 });
+  const dark = P({ color: 0x0d0d10, shininess: 25 });
+  const chrome = P({ color: 0xc9ced6, shininess: 220, specular: 0xffffff });
+  const glass = P({ color: 0x0e131c, shininess: 240, specular: 0x99aabb });
+  const tire = P({ color: 0x0c0c0c, shininess: 8 });
+  const rimM = P({ color: 0x9aa0a8, shininess: 150 });
+  const bedM = P({ color: 0x050506 });
+  const tail = P({ color: 0xcc1111, emissive: 0xaa0000, emissiveIntensity: 0.85 });
+  const rev = P({ color: 0xeeeeee, emissive: 0x777777, emissiveIntensity: 0.5 });
+  const head = P({ color: 0xffffee, emissive: 0xffffcc, emissiveIntensity: 0.8 });
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const mk = (geo, mat, x, y, z, rx = 0, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, 0); g.add(m); return m; };
+
+  // --- bodi utama (z: depan +2.65, belakang -2.65) ---
+  mk(B(1.6, 0.2, 5.0), dark, 0, 0.5, 0);                         // dasar / sasis
+  mk(B(1.86, 0.80, 5.3), body, 0, 0.85, 0);                      // bodi
+  mk(B(1.70, 0.10, 1.4), body, 0, 1.30, 1.85);                   // kap mesin menonjol
+  mk(B(1.5, 0.02, 1.55), bedM, 0, 1.26, -1.8);                   // bak terbuka (lantai gelap)
+  // --- kabin (profil samping diekstrusi, kaca depan miring) ---
+  const sh = new THREE.Shape();
+  sh.moveTo(-0.98, 1.25); sh.lineTo(-0.98, 1.85); sh.lineTo(0.85, 1.85); sh.lineTo(1.35, 1.25); sh.lineTo(-0.98, 1.25);
+  const cabGeo = new THREE.ExtrudeGeometry(sh, { depth: 1.74, bevelEnabled: false });
+  cabGeo.rotateY(-Math.PI / 2); cabGeo.translate(0.87, 0, 0);
+  mk(cabGeo, body, 0, 0, 0);
+  mk(B(1.58, 0.74, 0.03), glass, 0, 1.56, 1.111, -0.695);        // kaca depan
+  const sideGlass = B(0.02, 0.36, 1.35);
+  [-0.875, 0.875].forEach(x => mk(sideGlass, glass, x, 1.56, -0.05));
+  mk(B(1.40, 0.42, 0.02), glass, 0, 1.57, -0.985);               // kaca belakang kabin
+  mk(B(0.012, 0.4, 0.012), dark, 0.0, 2.05, -0.75);              // antena
+  // --- bagian belakang (tailgate) ---
+  mk(B(1.5, 0.62, 0.05), body, 0, 0.95, -2.675);                 // panel tailgate
+  const tgText = new THREE.Mesh(S.planeGeo, S.tailgateTextMat); tgText.scale.set(1.35, 0.15, 1); tgText.position.set(0, 1.19, -2.705); tgText.rotation.y = Math.PI; keep(tgText); g.add(tgText);
+  mk(B(0.24, 0.07, 0.05), chrome, 0, 1.06, -2.715);              // handle
+  mk(B(0.05, 0.06, 0.04), dark, -0.3, 1.1, -2.71);               // lubang kunci
+  mk(B(0.36, 0.035, 0.04), tail, 0, 1.235, -2.69);               // lampu rem tambahan
+  // lampu belakang vertikal (merah + putih mundur)
+  [-0.84, 0.84].forEach(x => {
+    mk(B(0.20, 0.38, 0.07), tail, x, 1.07, -2.68);
+    mk(B(0.20, 0.20, 0.07), rev, x, 0.78, -2.68);
+    mk(B(0.22, 0.62, 0.04), dark, x, 0.93, -2.665);              // bingkai
+  });
+  // bumper belakang krom + dudukan plat
+  mk(B(1.92, 0.26, 0.28), chrome, 0, 0.58, -2.72);
+  mk(B(0.62, 0.2, 0.04), dark, 0, 0.58, -2.865);
+  const plate = new THREE.Mesh(S.planeGeo, S.hiluxPlateMat); plate.scale.set(0.5, 0.13, 1); plate.position.set(0, 0.58, -2.89); plate.rotation.y = Math.PI; keep(plate); g.add(plate);
+  [-0.78, 0.78].forEach(x => mk(B(0.34, 0.34, 0.03), dark, x, 0.42, -1.92));   // mud flap
+  // --- bagian depan ---
+  mk(B(1.92, 0.30, 0.28), chrome, 0, 0.56, 2.7);                 // bumper depan
+  mk(B(1.25, 0.42, 0.04), dark, 0, 1.0, 2.66);                   // grille
+  mk(B(1.35, 0.5, 0.03), chrome, 0, 1.0, 2.645);
+  [-0.72, 0.72].forEach(x => mk(B(0.46, 0.2, 0.06), head, x, 1.12, 2.66));
+  [-1.02, 1.02].forEach(x => mk(B(0.12, 0.2, 0.22), dark, x, 1.6, 0.85));   // spion
+  // --- roda besar ---
+  const wGeo = new THREE.CylinderGeometry(0.40, 0.40, 0.28, 20);
+  const rGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.29, 8);
+  [[-0.9, -1.35], [-0.9, 1.75], [0.9, -1.35], [0.9, 1.75]].forEach(([x, z]) => {
+    mk(wGeo, tire, x, 0.40, z, 0, 0).rotation.z = Math.PI / 2;
+    mk(rGeo, rimM, x, 0.40, z, 0, 0).rotation.z = Math.PI / 2;
+    mk(B(0.14, 0.10, 1.05), dark, x * 1.045, 0.9, z);            // fender flare
+  });
+
+  outer.userData = { tailMat: tail, exhaustX: [0.5, -0.5], exhaustY: 0.4, exhaustZ: 2.95, len: 5.3 };
+  return outer;
+}
+
+// ============================================================
+// CAR PREVIEW — showroom (satu renderer, hanya jalan saat layar pilih mobil aktif)
+// ============================================================
+let previewScene, previewCamera, previewRenderer, previewCarMesh, previewRAF = 0, previewLast = 0;
+
+function ensurePreview() {
+  if (previewRenderer) return;
+  const canvas = document.getElementById('carCanvas3D');
+  previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  previewRenderer.setSize(360, 220, false);
+
+  previewScene = new THREE.Scene();
+  previewScene.background = new THREE.Color(0x0d0d18);
+  previewScene.fog = new THREE.Fog(0x0d0d18, 9, 22);
+  previewCamera = new THREE.PerspectiveCamera(45, 360 / 220, 0.1, 100);
+
+  previewScene.add(new THREE.AmbientLight(0x334477, 0.8));
+  const key = new THREE.DirectionalLight(0xffffff, 1.2); key.position.set(3, 5, 4); previewScene.add(key);
+  const fill = new THREE.DirectionalLight(0xff6a00, 0.45); fill.position.set(-4, 2, -2); previewScene.add(fill);
+  const rim = new THREE.DirectionalLight(0x00aaff, 0.35); rim.position.set(0, 3, -5); previewScene.add(rim);
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshPhongMaterial({ color: 0x0a0a12, shininess: 80, specular: 0x222244 }));
+  floor.rotation.x = -Math.PI / 2; previewScene.add(floor);
+  const grid = new THREE.GridHelper(12, 14, 0xe8001d, 0x1a1a2e); grid.position.y = 0.01; previewScene.add(grid);
+}
+
+function setPreviewCar(id) {
+  ensurePreview();
+  if (previewCarMesh) { previewScene.remove(previewCarMesh); disposeObject(previewCarMesh); }
+  const carData = CARS.find(c => c.id === id) || CARS[0];
+  previewCarMesh = buildCarMesh3D(carData);
+  previewScene.add(previewCarMesh);
+  const k = 1 + Math.max(0, (carData.len || 3.8) / 3.8 - 1) * 0.5;
+  previewCamera.position.set(3.5 * k, 2.3 * k, 5.6 * k);
+  previewCamera.lookAt(0, 0.6, 0);
+  previewRenderer.render(previewScene, previewCamera);
+}
+
+function previewLoop(t) {
+  previewRAF = requestAnimationFrame(previewLoop);
+  const dt = Math.min(0.1, (t - previewLast) / 1000); previewLast = t;
+  if (previewCarMesh) previewCarMesh.rotation.y += dt * 0.55;
+  previewRenderer.render(previewScene, previewCamera);
+}
+function startPreview() { stopPreview(); previewLast = performance.now(); previewRAF = requestAnimationFrame(previewLoop); }
+function stopPreview() { if (previewRAF) { cancelAnimationFrame(previewRAF); previewRAF = 0; } }
+
+
+// ============================================================
+// CAR SELECT UI
+// ============================================================
+function renderCarList() {
+  document.getElementById('csCoins').textContent = state.coins.toLocaleString();
+  const list = document.getElementById('carList');
+  list.innerHTML = '';
+  CARS.forEach(car=>{
+    const div = document.createElement('div');
+    div.className = 'car-item' + (state.selectedCar===car.id?' selected':'');
+    div.innerHTML = `<span class="car-item-class class-${car.class}">${car.class}</span><div class="car-item-name">${car.name}</div><div class="car-item-brand">${car.brand}</div>`;
+    div.onclick = ()=>selectCar(car.id);
+    list.appendChild(div);
+  });
+  previewCar(state.selectedCar);
+}
+
+function selectCar(id) {
+  state.selectedCar = id;
+  saveState();
+  renderCarList();
+  setPreviewCar(id);
+}
+
+function previewCar(id) {
+  const car = CARS.find(c=>c.id===id);
+  if(!car) return;
+  document.getElementById('previewName').textContent = car.name;
+  document.getElementById('previewDesc').textContent = car.desc + ' • Top Speed: ' + car.top + ' km/h';
+  const eng=state.upgrades.engine, han=state.upgrades.handling, spd=state.upgrades.speed;
+  document.getElementById('statsBars').innerHTML = [
+    { label:'Kecepatan', val:Math.min(100,car.speed+spd*2), color:'#e8001d' },
+    { label:'Akselerasi', val:Math.min(100,car.accel+eng*2), color:'#ff6a00' },
+    { label:'Handling', val:Math.min(100,car.handling+han*2), color:'#ffd200' },
+    { label:'Top Speed', val:Math.min(100,Math.round(car.top/3.5)), color:'#00aaff' },
+  ].map(s=>`<div class="stat-row"><div class="stat-label">${s.label}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${s.val}%;background:${s.color}"></div></div><div class="stat-val">${s.val}</div></div>`).join('');
+}
+
+// ============================================================
+// UPGRADES
+// ============================================================
+function renderUpgrades() {
+  document.getElementById('ugCoins').textContent = state.coins.toLocaleString();
+  const body = document.getElementById('upgradeBody');
+  body.innerHTML = '';
+  UPGRADES.forEach(upg=>{
+    const level=state.upgrades[upg.id]||0, cost=Math.round(upg.costBase*Math.pow(1.4,level)), maxed=level>=upg.maxLevel, canAfford=state.coins>=cost;
+    const pips=Array.from({length:upg.maxLevel},(_,i)=>`<div class="ug-pip${i<level?(i===upg.maxLevel-1?' max':' filled'):''}"></div>`).join('');
+    const card=document.createElement('div');
+    card.className='upgrade-card';
+    card.innerHTML=`<div class="ug-card-icon">${upg.icon}</div><div class="ug-card-name">${upg.name}</div><div class="ug-card-desc">${upg.desc}</div><div style="font-size:11px;color:var(--green);margin-bottom:8px;">📊 ${upg.effect}</div><div class="ug-level-row">${pips}</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Level ${level}/${upg.maxLevel}</div>${maxed?`<button class="ug-btn" disabled>✅ MAXED OUT</button>`:`<button class="ug-btn" ${!canAfford?'disabled':''} onclick="buyUpgrade('${upg.id}')">UPGRADE <span class="cost">💰 ${cost.toLocaleString()}</span></button>`}`;
+    body.appendChild(card);
+  });
+}
+
+function buyUpgrade(id) {
+  const upg=UPGRADES.find(u=>u.id===id), level=state.upgrades[id]||0, cost=Math.round(upg.costBase*Math.pow(1.4,level));
+  if(state.coins<cost||level>=upg.maxLevel) return;
+  state.coins-=cost; state.upgrades[id]=level+1; saveState(); renderUpgrades();
+}
+
+// ============================================================
+// GAME ENGINE — Three.js 3D
+// Prinsip performa:
+//  * SATU loop requestAnimationFrame (dijaga flag `running`), tidak pernah ganda
+//  * delta-time + sub-step -> kecepatan game sama di 30/60/144 Hz
+//  * tanpa lampu dinamis & shadow map (lampu jalan = sprite/tekstur aditif)
+//  * jalan = 1 plane + tekstur yang digeser, bukan 30 segmen x 25 mesh
+//  * traffic / koin / partikel / api nitro memakai pool, tidak membuat geometri tiap frame
+//  * resolusi render adaptif (turun otomatis jika FPS rendah)
+// ============================================================
+const ROAD_WIDTH = 14, LANE_COUNT = 4, ROAD_LEN = 190, ROAD_P = 6;   // ROAD_P = panjang 1 pola tekstur jalan (m)
+const LANE_X = [-5.25, -1.75, 1.75, 5.25];
+const LANE_KMH = [115, 92, 72, 56];          // kecepatan traffic per lajur (km/h tampilan) -> 1 lajur = 1 kecepatan, tidak saling tabrak
+const WORLD_SCALE = 0.55;                    // meter dunia per (m/s tampilan)
+const kmhToUps = k => k / 3.6 * WORLD_SCALE; // km/h tampilan -> unit dunia per detik
+const TRAFFIC_COLORS_3D = [0xcc2200, 0x0044cc, 0x228822, 0x888800, 0xaa6600, 0xffffff, 0x334466, 0x662288];
+const TRAFFIC_DIMS = { sedan: { w: 1.8, l: 3.8 }, suv: { w: 2.0, l: 4.2 }, truck: { w: 2.4, l: 6.0 }, bus: { w: 2.4, l: 6.0 }, moto: { w: 0.7, l: 1.8 } };
+const TRAFFIC_TYPES = ['sedan', 'suv', 'truck', 'bus', 'moto'];
+
+let renderer3D, scene3D, camera3D;
+let game = { over: true, paused: false };
+let W = { ready: false };                    // semua objek dunia yang dipakai ulang
+let rafId = 0, running = false, lastT = 0;
+const keys = {}, mobileKeys = { left: false, right: false, nitro: false, gas: false, brake: false };
+let H = null;                                // cache elemen HUD
+
+// ---------- util ----------
+const rnd = (a, b) => a + Math.random() * (b - a);
+const damp = (k, s) => 1 - Math.pow(1 - k, s);   // lerp factor yang tidak tergantung FPS (s = dt*60)
+
+function makeRoadTexture() {
+  const PW = 512, PH = 512;
+  const c = document.createElement('canvas'); c.width = PW; c.height = PH;
+  const x = c.getContext('2d');
+  const mx = PW / ROAD_WIDTH, my = PH / ROAD_P;
+  x.fillStyle = '#2a2a38'; x.fillRect(0, 0, PW, PH);
+  // butiran aspal (memberi rasa kecepatan)
+  const img = x.getImageData(0, 0, PW, PH), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * 30; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  x.putImageData(img, 0, 0);
+  // jejak roda
+  x.fillStyle = 'rgba(0,0,0,0.16)';
+  LANE_X.forEach(lx => [-0.8, 0.8].forEach(o => x.fillRect((PW / 2 + (lx + o) * mx) - 0.25 * mx, 0, 0.5 * mx, PH)));
+  // garis tepi
+  x.fillStyle = '#e8e8f2';
+  x.fillRect(0.14 * mx, 0, 0.14 * mx, PH);
+  x.fillRect(PW - 0.28 * mx, 0, 0.14 * mx, PH);
+  // garis tengah kuning ganda
+  x.fillStyle = '#ffd21a';
+  [-0.12, 0.12].forEach(o => x.fillRect(PW / 2 + o * mx - 0.045 * mx, 0, 0.09 * mx, PH));
+  // garis putus-putus
+  x.fillStyle = '#f4f4fa';
+  [-3.5, 3.5].forEach(lx => x.fillRect(PW / 2 + lx * mx - 0.05 * mx, 1.2 * my, 0.1 * mx, 2.6 * my));
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.ClampToEdgeWrapping; t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, ROAD_LEN / ROAD_P);
+  t.anisotropy = renderer3D.capabilities.getMaxAnisotropy();
+  return t;
+}
+
+function makeSkylineTexture() {
+  const w = 1024, h = 512;
+  return canvasTex(w, h, (x) => {
+    const g = x.createLinearGradient(0, h, 0, h * 0.35);
+    g.addColorStop(0, 'rgba(120,40,110,0.40)'); g.addColorStop(1, 'rgba(120,40,110,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    let px = 0, seed = 7;
+    const r = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+    while (px < w) {
+      const bw = 40 + r() * 70, bh = 90 + r() * 330;
+      x.fillStyle = '#0b0b1c'; x.fillRect(px, h - bh, bw, bh);
+      x.fillStyle = '#10102a'; x.fillRect(px, h - bh, 3, bh);
+      for (let wy = h - bh + 14; wy < h - 10; wy += 18)
+        for (let wx = px + 8; wx < px + bw - 10; wx += 14)
+          if (r() > 0.55) { x.fillStyle = r() > 0.15 ? '#ffe58a' : '#8fd0ff'; x.globalAlpha = 0.55 + r() * 0.45; x.fillRect(wx, wy, 6, 8); x.globalAlpha = 1; }
+      if (r() > 0.6) { x.fillStyle = r() > 0.5 ? '#ff2244' : '#2a7bff'; x.shadowColor = x.fillStyle; x.shadowBlur = 12; x.fillRect(px + bw / 2 - 12, h - bh - 4, 24, 4); x.shadowBlur = 0; }
+      px += bw + 4 + r() * 14;
+    }
+  });
+}
+
+// ---------- dunia (dibuat SEKALI) ----------
+function ensureWorld() {
+  if (W.ready) return;
+  const S = shared();
+  const canvas = document.getElementById('gameCanvas');
+  renderer3D = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 2, powerPreference: 'high-performance', stencil: false });
+  W.maxPR = Math.min(window.devicePixelRatio || 1, 1.75);
+  W.minPR = 0.55;
+  W.pr = W.maxPR;
+  renderer3D.setPixelRatio(W.pr);
+  renderer3D.setSize(window.innerWidth, window.innerHeight, false);
+  renderer3D.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer3D.toneMappingExposure = 1.15;
+
+  scene3D = new THREE.Scene();
+  scene3D.background = new THREE.Color(0x080812);
+  scene3D.fog = new THREE.FogExp2(0x080812, 0.02);
+  camera3D = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.3, 320);
+
+  // hanya 3 lampu statis (biaya shader tetap kecil)
+  scene3D.add(new THREE.AmbientLight(0x5566aa, 0.95));
+  scene3D.add(new THREE.HemisphereLight(0x8899cc, 0x14141f, 0.45));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(-12, 30, 22); scene3D.add(sun);
+
+  // tanah, bahu jalan, jalan
+  const midZ = 12 - ROAD_LEN / 2;
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, ROAD_LEN + 70), new THREE.MeshBasicMaterial({ color: 0x0a0a14 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(0, -0.06, midZ - 30); scene3D.add(ground);
+  const shMat = new THREE.MeshBasicMaterial({ color: 0x15151f });
+  [-1, 1].forEach(sx => {
+    const sh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, ROAD_LEN), shMat);
+    sh.rotation.x = -Math.PI / 2; sh.position.set(sx * (ROAD_WIDTH / 2 + 1.6), -0.01, midZ); scene3D.add(sh);
+  });
+  W.roadTex = makeRoadTexture();
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LEN), new THREE.MeshBasicMaterial({ map: W.roadTex }));
+  road.rotation.x = -Math.PI / 2; road.position.set(0, 0, midZ); scene3D.add(road);
+
+  // guard rail
+  const railGeo = new THREE.BoxGeometry(0.12, 0.35, ROAD_LEN), railMat = new THREE.MeshLambertMaterial({ color: 0x9c9cba });
+  [-1, 1].forEach(sx => { const r = new THREE.Mesh(railGeo, railMat); r.position.set(sx * (ROAD_WIDTH / 2 + 0.06), 0.26, midZ); scene3D.add(r); });
+
+  // tiang penanda tol (digeser sbg 1 grup, periode 18 m)
+  W.posts = new THREE.Group(); scene3D.add(W.posts);
+  const postGeo = new THREE.BoxGeometry(0.12, 1.4, 0.12), topGeo = new THREE.BoxGeometry(0.22, 0.12, 0.22);
+  const postMat = new THREE.MeshLambertMaterial({ color: 0xcc4400 }), topMat = new THREE.MeshBasicMaterial({ color: 0xff7a1a });
+  for (let k = 0; k <= 11; k++) [-1, 1].forEach(sx => {
+    const p = new THREE.Mesh(postGeo, postMat); p.position.set(sx * (ROAD_WIDTH / 2 + 2.2), 0.7, -k * 18); W.posts.add(p);
+    const t = new THREE.Mesh(topGeo, topMat); t.position.set(sx * (ROAD_WIDTH / 2 + 2.2), 1.46, -k * 18); W.posts.add(t);
+  });
+
+  // lampu jalan (tiang + sprite cahaya + bercak cahaya di aspal) — tanpa PointLight
+  W.lamps = new THREE.Group(); scene3D.add(W.lamps);
+  const poleGeo = new THREE.BoxGeometry(0.16, 6.6, 0.16), poleMat = new THREE.MeshLambertMaterial({ color: 0x2a2a38 });
+  const headGeo = new THREE.BoxGeometry(0.8, 0.1, 0.4), headMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+  const glowMat = new THREE.SpriteMaterial({ map: radialTex([[0, 'rgba(255,200,140,0.95)'], [0.3, 'rgba(255,150,70,0.35)'], [1, 'rgba(255,120,40,0)']]), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+  const poolMat = new THREE.MeshBasicMaterial({ map: radialTex([[0, 'rgba(255,170,90,0.42)'], [0.5, 'rgba(255,140,60,0.14)'], [1, 'rgba(255,120,40,0)']]), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+  for (let k = 0; k <= 12; k++) {
+    const sx = k % 2 === 0 ? -1 : 1, z = -k * 18;
+    const pole = new THREE.Mesh(poleGeo, poleMat); pole.position.set(sx * 8.7, 3.3, z); W.lamps.add(pole);
+    const head = new THREE.Mesh(headGeo, headMat); head.position.set(sx * 8.2, 6.6, z); W.lamps.add(head);
+    const glow = new THREE.Sprite(glowMat); glow.scale.set(9, 9, 1); glow.position.set(sx * 8.1, 6.4, z); W.lamps.add(glow);
+    const pool = new THREE.Mesh(S.planeGeo, poolMat); pool.rotation.x = -Math.PI / 2; pool.scale.set(15, 20, 1); pool.position.set(sx * 4.5, 0.04, z); W.lamps.add(pool);
+  }
+
+  // skyline = 1 plane bertekstur (menggantikan ~500 mesh jendela + 14 PointLight)
+  const skyTex = makeSkylineTexture(); skyTex.wrapS = THREE.RepeatWrapping; skyTex.repeat.set(4, 1);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(900, 80), new THREE.MeshBasicMaterial({ map: skyTex, transparent: true, depthWrite: false, fog: false }));
+  sky.position.set(0, 39, -ROAD_LEN - 12); scene3D.add(sky);
+
+  // pool partikel
+  W.particles = [];
+  const pGeo = new THREE.SphereGeometry(0.12, 5, 4);
+  for (let i = 0; i < 64; i++) {
+    const m = new THREE.Mesh(pGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true }));
+    m.visible = false; scene3D.add(m);
+    W.particles.push({ mesh: m, active: false, vx: 0, vy: 0, vz: 0, life: 0 });
+  }
+  W.pIdx = 0;
+
+  // pool koin & traffic
+  W.coinGeo = new THREE.TorusGeometry(0.38, 0.12, 8, 16);
+  W.coinMat = new THREE.MeshPhongMaterial({ color: 0xffd200, emissive: 0xaa8800, emissiveIntensity: 0.5, shininess: 200 });
+  W.coinPool = []; W.trafficPool = {};
+  W.player = null; W.flames = [];
+  W.tg = {}; W.bodyMats = {};
+  W.ready = true;
+}
+
+// ---------- traffic ----------
+const tgeo = (k, fn) => W.tg[k] || (W.tg[k] = fn());
+const bodyMat = c => W.bodyMats[c] || (W.bodyMats[c] = new THREE.MeshPhongMaterial({ color: c, shininess: 80 }));
+
+function makeTrafficMesh3D(type) {
+  const S = shared();
+  const g = new THREE.Group(); g.userData.bodies = [];
+  const { w, l } = TRAFFIC_DIMS[type];
+  const glass = W.glassMat || (W.glassMat = new THREE.MeshPhongMaterial({ color: 0x0f1622, shininess: 200, specular: 0x7788aa }));
+  const dark = W.darkMat || (W.darkMat = new THREE.MeshPhongMaterial({ color: 0x111111 }));
+  const tailM = W.tailMat || (W.tailMat = new THREE.MeshBasicMaterial({ color: 0xff2a2a }));
+  const headM = W.headMat || (W.headMat = new THREE.MeshBasicMaterial({ color: 0xffffcc }));
+  const B = (a, b, c) => tgeo('b' + a + '_' + b + '_' + c, () => new THREE.BoxGeometry(a, b, c));
+  const add = (geo, mat, x, y, z, isBody) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); if (isBody) g.userData.bodies.push(m); return m; };
+  const wheelG = tgeo('wheel', () => { const q = new THREE.CylinderGeometry(1, 1, 1, 10); q.rotateZ(Math.PI / 2); return q; });
+  const wheel = (x, y, z, r) => { const m = add(wheelG, dark, x, y, z); m.scale.set(0.24, r, r); };
+
+  // (depan = -Z, belakang = +Z, jadi dari kamera terlihat belakangnya)
+  if (type === 'moto') {
+    const torus = tgeo('torus', () => new THREE.TorusGeometry(0.28, 0.07, 8, 14));
+    [-0.7, 0.7].forEach(z => { const t = add(torus, dark, 0, 0.28, z); t.rotation.y = Math.PI / 2; });
+    add(B(0.22, 0.45, 1.1), dark, 0, 0.55, 0);
+    add(B(0.45, 0.7, 0.3), bodyMat(0x333333), 0, 1.0, 0.1);                       // punggung pengendara
+    add(tgeo('helmet', () => new THREE.SphereGeometry(0.22, 8, 8)), bodyMat(0x222222), 0, 1.5, 0.0);
+    g.userData.fixed = true;
+    add(B(0.18, 0.08, 0.05), tailM, 0, 0.62, 0.78);
+  } else if (type === 'truck' || type === 'bus') {
+    add(B(w, 2.0, l), bodyMat(0xffffff), 0, 1.25, 0, true);
+    if (type === 'bus') add(B(w * 0.8, 0.75, 0.05), glass, 0, 1.75, l / 2 + 0.03);                      // kaca belakang bus
+    add(B(w * 0.78, 0.7, 0.05), glass, 0, 1.6, -l / 2 - 0.03);                                          // kaca depan
+    [-0.8, 0.8].forEach(x => add(B(0.4, 0.14, 0.06), tailM, x, 0.55, l / 2 + 0.03));
+    [-0.8, 0.8].forEach(x => add(B(0.4, 0.12, 0.06), headM, x, 0.5, -l / 2 - 0.03));
+    add(B(0.55, 0.14, 0.04), W.plateTexMat || (W.plateTexMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee })), 0, 0.38, l / 2 + 0.03);
+    [[-1, 1], [-1, -1], [1, 1], [1, -1]].forEach(([sx, sz]) => wheel(sx * (w / 2 + 0.01), 0.45, sz * l * 0.34, 0.45));
+  } else {
+    const suv = type === 'suv';
+    const bh = 0.6, ch = suv ? 0.65 : 0.5, cl = l * (suv ? 0.72 : 0.5);
+    add(B(w, bh, l), bodyMat(0xcc2200), 0, 0.65, 0, true);
+    add(B(w * 0.84, ch, cl), bodyMat(0xcc2200), 0, 0.95 + ch / 2, suv ? 0.1 : 0.2, true);
+    const cz = suv ? 0.1 : 0.2;
+    add(B(w * 0.84 + 0.02, ch * 0.62, cl * 0.84), glass, 0, 0.95 + ch / 2 + 0.02, cz);                  // pita kaca samping
+    add(B(w * 0.72, ch * 0.62, 0.04), glass, 0, 0.95 + ch / 2 + 0.02, cz + cl / 2 + 0.005);             // kaca belakang
+    add(B(w * 0.72, ch * 0.62, 0.04), glass, 0, 0.95 + ch / 2 + 0.02, cz - cl / 2 - 0.005);             // kaca depan
+    [-0.36, 0.36].forEach(s => add(B(0.34, 0.11, 0.05), tailM, s * w, 0.7, l / 2 + 0.025));
+    [-0.36, 0.36].forEach(s => add(B(0.3, 0.1, 0.05), headM, s * w, 0.68, -l / 2 - 0.025));
+    add(B(0.5, 0.12, 0.03), W.plateTexMat || (W.plateTexMat = new THREE.MeshBasicMaterial({ color: 0xeeeeee })), 0, 0.5, l / 2 + 0.03);
+    [[-1, 1], [-1, -1], [1, 1], [1, -1]].forEach(([sx, sz]) => wheel(sx * (w / 2), 0.3, sz * l * 0.32, 0.3));
+  }
+  g.add(keep(makeBlob(w * 1.45, l * 1.2)));
+  g.traverse(m => { if (m.isMesh) { m.userData.keepGeo = true; m.userData.keepMat = true; } });
+  return g;
+}
+
+function acquireTrafficMesh(type, color) {
+  const pool = W.trafficPool[type] || (W.trafficPool[type] = []);
+  const m = pool.pop() || makeTrafficMesh3D(type);
+  if (!m.userData.fixed) { const mat = bodyMat(color); m.userData.bodies.forEach(b => { b.material = mat; }); }
+  scene3D.add(m);
+  return m;
+}
+function releaseTrafficMesh(t) {
+  scene3D.remove(t.mesh);
+  (W.trafficPool[t.type] || (W.trafficPool[t.type] = [])).push(t.mesh);
+}
+
+function spawnTraffic(init = false) {
+  const g = game;
+  const type = TRAFFIC_TYPES[Math.floor(Math.random() * TRAFFIC_TYPES.length)];
+  const d = TRAFFIC_DIMS[type];
+  const heavy = type === 'truck' || type === 'bus';
+  const spawnZ = init ? -rnd(16, 100) : -(ROAD_LEN * 0.6 + rnd(0, 6));
+  const order = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+  if (heavy) order.sort((a, b) => (b >= 2) - (a >= 2));    // truk & bus cenderung di lajur lambat
+  let lane = -1;
+  for (const ln of order) {
+    if (!g.traffic.some(o => o.lane === ln && Math.abs(o.z - spawnZ) < (o.l + d.l) / 2 + 12)) { lane = ln; break; }
+  }
+  if (lane < 0) return;
+  const mesh = acquireTrafficMesh(type, TRAFFIC_COLORS_3D[Math.floor(Math.random() * TRAFFIC_COLORS_3D.length)]);
+  mesh.position.set(LANE_X[lane], 0, spawnZ);
+  g.traffic.push({ x: LANE_X[lane], z: spawnZ, w: d.w, l: d.l, ups: kmhToUps(LANE_KMH[lane]), mesh, type, lane, scraped: false, nm: false });
+}
+
+function spawnCoin() {
+  const g = game;
+  const mesh = W.coinPool.pop() || (() => { const m = new THREE.Mesh(W.coinGeo, W.coinMat); m.rotation.x = Math.PI / 4; return m; })();
+  const cx = LANE_X[Math.floor(Math.random() * LANE_COUNT)] + rnd(-0.75, 0.75);
+  const z = -(ROAD_LEN * 0.55);
+  mesh.position.set(cx, 0.8, z); scene3D.add(mesh);
+  g.coins.push({ x: cx, z, mesh, ph: Math.random() * 6 });
+}
+
+function emitParticles(x, y, z, color, count) {
+  for (let i = 0; i < count; i++) {
+    const p = W.particles[W.pIdx]; W.pIdx = (W.pIdx + 1) % W.particles.length;
+    p.active = true; p.life = 1;
+    p.vx = rnd(-0.06, 0.06); p.vy = rnd(0.06, 0.16); p.vz = rnd(-0.06, 0.06);
+    p.mesh.material.color.setHex(color); p.mesh.material.opacity = 1;
+    p.mesh.position.set(x + rnd(-0.25, 0.25), y + rnd(0, 0.5), z + rnd(-0.25, 0.25));
+    p.mesh.scale.setScalar(rnd(0.6, 1.4));
+    p.mesh.visible = true;
+  }
+}
+
+// ---------- pemain ----------
+function rebuildPlayer(carData) {
+  const S = shared();
+  if (W.player) { scene3D.remove(W.player); disposeObject(W.player); }
+  const len = carData.len || 3.8, wid = carData.width || 1.8;
+  const p = buildCarMesh3D(carData);
+  p.add(makeBlob(wid * 1.45, len * 1.2));
+  const beam = new THREE.Mesh(S.planeGeo, S.beamMat);
+  beam.rotation.x = -Math.PI / 2; beam.scale.set(wid * 2.8, 26, 1); beam.position.set(0, 0.05, -(len / 2 + 13)); keep(beam); p.add(beam);
+  W.flames = p.userData.exhaustX.map(x => {
+    const f = new THREE.Mesh(S.flameGeo, S.flameMat); keep(f);
+    f.position.set(x, p.userData.exhaustY, p.userData.exhaustZ); f.visible = false; p.add(f); return f;
+  });
+  W.tailMatPlayer = p.userData.tailMat;
+  scene3D.add(p); W.player = p;
+}
+
+function initGame3D() {
+  ensureWorld();
+  stopLoop();
+  const carData = CARS.find(c => c.id === state.selectedCar) || CARS[0];
+  rebuildPlayer(carData);
+
+  // bersihkan sisa game sebelumnya
+  if (game.traffic) game.traffic.forEach(releaseTrafficMesh);
+  if (game.coins) game.coins.forEach(c => { scene3D.remove(c.mesh); W.coinPool.push(c.mesh); });
+  W.particles.forEach(p => { p.active = false; p.mesh.visible = false; });
+
+  const u = state.upgrades;
+  const engLevel = u.engine || 0, hanLevel = u.handling || 0, spdLevel = u.speed || 0, nitLevel = u.nitro || 0, brkLevel = u.brake || 0, armLevel = u.armor || 0;
+  const baseTop = parseInt(carData.top);
+  const len = carData.len || 3.8, wid = carData.width || 1.8, ch = carData.h || 1.2;
+  game = {
+    carData, over: false, paused: false, time: 0,
+    px: 0, v: 0, lateralSpeed: 0,                           // v = km/h (float)
+    maxKmh: spdLevel > 0 ? baseTop + spdLevel * 30 : baseTop,
+    accelRate: 0.025 + engLevel * 0.004,                     // porsi menuju target per tick 60Hz
+    brakeKmhS: (0.04 + brkLevel * 0.008) * 12000,            // km/h per detik
+    handling: (carData.handling + hanLevel * 8) / 100,
+    gear: 1, kmh: 0, ups: 0,
+    nitro: 100, maxNitro: 100 + nitLevel * 15, nitroActive: false, nitroRegen: (0.12 + nitLevel * 0.025) * 60, nitroBoost: 1.5 + nitLevel * 0.08,
+    score: 0, earned: 0, distance: 0, combo: 0, comboT: 0,
+    lives: 1 + Math.floor(armLevel / 2), invincible: 0,
+    shake: 0, isBraking: false, isGassing: true,
+    pW: wid * 0.78, pL: len * 0.79,
+    camBaseY: 2.2 + (ch - 1.2) * 0.65, camBaseZ: len / 2 + 5.9,
+    camX: 0, camY: 2.2 + (ch - 1.2) * 0.65,
+    spawnT: 1.2, coinT: 1.5, hudT: 0, scroll: 0,
+    traffic: [], coins: [], brakeLit: false, hud: {}
+  };
+  for (let i = 0; i < 6; i++) spawnTraffic(true);
+
+  H = H || {
+    speed: document.getElementById('hudSpeed'), dist: document.getElementById('hudDist'), score: document.getElementById('hudScore'),
+    coins: document.getElementById('hudCoins'), gear: document.getElementById('hudGear'), nitro: document.getElementById('hudNitro'),
+    gas: document.getElementById('indGas'), brake: document.getElementById('indBrake'), combo: document.getElementById('hudCombo'),
+    gasBar: document.getElementById('gasBar'), brakeBar: document.getElementById('brakeBar')
+  };
+  document.getElementById('pauseOverlay').classList.remove('active');
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  Object.keys(keys).forEach(k => keys[k] = false);
+
+  W.player.position.set(0, 0, 0);
+  W.roadTex.offset.y = 0; W.posts.position.z = 0; W.lamps.position.z = 0;
+  camera3D.fov = 65; camera3D.aspect = window.innerWidth / window.innerHeight; camera3D.updateProjectionMatrix();
+  updateCamera(1 / 60, true);
+  updateHUD(true);
+  renderer3D.compile(scene3D, camera3D);   // kompilasi shader di awal -> tidak ada patah saat main
+  startLoop();
+}
+
+// ---------- loop ----------
+function startLoop() {
+  stopLoop();
+  running = true; lastT = performance.now();
+  W.aq = { t: 0, n: 0, warm: 2.0, lockUntil: 0 };
+  rafId = requestAnimationFrame(loop);
+}
+function stopLoop() { running = false; if (rafId) { cancelAnimationFrame(rafId); rafId = 0; } }
+
+function loop(t) {
+  if (!running) return;
+  rafId = requestAnimationFrame(loop);
+  let rdt = (t - lastT) / 1000; lastT = t;
+  if (!(rdt > 0)) rdt = 1 / 60;
+  rdt = Math.min(rdt, 0.1);                           // tab sempat di-throttle -> jangan lompat
+  if (!game.paused && !game.over) {
+    const n = Math.max(1, Math.ceil(rdt * 60 - 1e-6)); // sub-step max 1/60 dtk agar tabrakan tidak tembus
+    const sdt = rdt / n;
+    for (let i = 0; i < n && !game.over; i++) stepGame(sdt);
+  }
+  updateCamera(rdt, false);
+  renderer3D.render(scene3D, camera3D);
+  adaptQuality(rdt);
+  if (game.over) stopLoop();                          // frame terakhir sudah dirender
+}
+
+function adaptQuality(rdt) {
+  const q = W.aq; q.t += rdt; q.n++;
+  if (q.t < 1.5) return;
+  const fps = q.n / q.t; q.t = 0; q.n = 0;
+  if (q.warm > 0) { q.warm -= 1.5; return; }
+  const now = performance.now();
+  let pr = W.pr;
+  if (fps < 45 && pr > W.minPR) { pr = Math.max(W.minPR, pr * 0.85); q.lockUntil = now + 6000; }
+  else if (fps > 57 && pr < W.maxPR && now > q.lockUntil) pr = Math.min(W.maxPR, pr * 1.12);
+  if (Math.abs(pr - W.pr) > 0.001) { W.pr = pr; renderer3D.setPixelRatio(pr); renderer3D.setSize(window.innerWidth, window.innerHeight, false); }
+}
+
+// ---------- update (dt dalam detik, <= 1/60) ----------
+function stepGame(dt) {
+  const g = game, s = dt * 60;
+  g.time += dt;
+
+  const left = keys['arrowleft'] || keys['a'] || mobileKeys.left;
+  const right = keys['arrowright'] || keys['d'] || mobileKeys.right;
+  const gasBtn = keys['arrowup'] || keys['w'] || mobileKeys.gas;
+  const brakeBtn = keys['arrowdown'] || keys['s'] || mobileKeys.brake;
+  const nitro = keys[' '] || mobileKeys.nitro;
+  const isBraking = !!brakeBtn, isGassing = !!gasBtn || !brakeBtn;
+  g.isBraking = isBraking; g.isGassing = isGassing;
+
+  // kecepatan
+  if (isBraking) { g.v = Math.max(0, g.v - g.brakeKmhS * dt); g.nitroActive = false; }
+  else {
+    const target = (nitro && g.nitro > 0) ? g.maxKmh * g.nitroBoost : g.maxKmh;
+    if (isGassing) g.v += (target - g.v) * damp(g.accelRate, s);
+    else g.v = Math.max(0, g.v - g.brakeKmhS * 0.25 * dt);
+  }
+  // nitro
+  if (nitro && !isBraking && g.nitro > 0 && g.v > g.maxKmh * 0.4) { g.nitroActive = true; g.nitro = Math.max(0, g.nitro - 30 * dt); }
+  else { g.nitroActive = false; g.nitro = Math.min(g.maxNitro, g.nitro + g.nitroRegen * dt); }
+
+  // lateral
+  const latAccel = g.handling * 4.5, roadHW = ROAD_WIDTH / 2 - 1.1;
+  if (left) g.lateralSpeed = Math.max(-latAccel, g.lateralSpeed - 1.0 * s);
+  else if (right) g.lateralSpeed = Math.min(latAccel, g.lateralSpeed + 1.0 * s);
+  else g.lateralSpeed *= Math.pow(0.82, s);
+  g.px = Math.max(-roadHW, Math.min(roadHW, g.px + g.lateralSpeed * 0.06 * s));
+
+  g.kmh = Math.round(g.v);
+  g.ups = kmhToUps(g.v);
+  g.distance += g.v / 3600 * dt;
+  g.gear = Math.min(8, Math.max(1, Math.ceil(g.kmh / 45)));
+  g.score += 15 * g.v * (1 + g.combo * 0.1) * dt;
+
+  // jalan & dekor bergerak ke arah kamera (hanya geser tekstur / 2 grup)
+  g.scroll += g.ups * dt;
+  W.roadTex.offset.y = (g.scroll / ROAD_P) % 1;
+  W.posts.position.z = g.scroll % 18;
+  W.lamps.position.z = g.scroll % 36;
+
+  // mobil pemain
+  const pl = W.player;
+  pl.position.x = g.px;
+  pl.rotation.z = -g.lateralSpeed * 0.02;
+  pl.rotation.y = -g.lateralSpeed * 0.015;
+  if (g.invincible > 0) { g.invincible -= dt; pl.visible = Math.floor(g.time * 15) % 2 === 1; if (g.invincible <= 0) pl.visible = true; }
+  else pl.visible = true;
+  if (g.isBraking !== g.brakeLit) { g.brakeLit = g.isBraking; W.tailMatPlayer.emissiveIntensity = g.isBraking ? 2.6 : 0.85; }
+  // api nitro (mesh yang sama dipakai ulang)
+  W.flames.forEach(f => {
+    f.visible = g.nitroActive;
+    if (g.nitroActive) { f.scale.set(1, 1, 0.6 + Math.random() * 0.7); f.material.color.setHex(Math.random() > 0.5 ? 0x33aaff : 0x66ffff); }
+  });
+
+  if (g.shake > 0) g.shake *= Math.pow(0.85, s);
+  if (g.comboT > 0) { g.comboT -= dt; if (g.comboT <= 0) g.combo = 0; }
+
+  // spawn
+  g.spawnT -= dt;
+  if (g.spawnT <= 0) { spawnTraffic(); g.spawnT = Math.max(0.9, 3.0 - g.v * 0.009) * rnd(0.8, 1.25); }
+  g.coinT -= dt;
+  if (g.coinT <= 0) { spawnCoin(); g.coinT = 2.0; }
+
+  // traffic (kecepatan relatif = pemain - lajur)
+  for (let i = g.traffic.length - 1; i >= 0; i--) {
+    const t = g.traffic[i];
+    t.z += (g.ups - t.ups) * dt;
+    t.mesh.position.z = t.z;
+    if (t.z > 12 || t.z < -(ROAD_LEN - 6)) { releaseTrafficMesh(t); g.traffic.splice(i, 1); continue; }
+    if (g.invincible > 0) continue;
+
+    const dx = Math.abs(g.px - t.x), dz = Math.abs(t.z);
+    const rawOvX = (g.pW / 2 + t.w / 2) - dx, rawOvZ = (g.pL / 2 + t.l / 2) - dz;
+    if (rawOvX > 0 && rawOvZ > 0) {
+      const bumperThresh = g.pW * 0.18;
+      if (rawOvX <= bumperThresh) {                        // serempetan
+        const pushDir = g.px < t.x ? -1 : 1;
+        g.px += pushDir * (bumperThresh - rawOvX + 0.08) * 1.2;
+        g.lateralSpeed = pushDir * 2.5;
+        g.v = Math.max(g.v * Math.pow(0.88, s), g.maxKmh * 0.25);
+        g.shake = Math.max(g.shake, 5);
+        emitParticles(g.px, 0.5, 0, 0xffaa00, 3);
+        if (!t.scraped) { t.scraped = true; showToast('⚠️ SEREMPETAN!', '#ffaa00'); g.combo = 0; }
+      } else {                                              // tabrakan
+        emitParticles(g.px, 0.5, 0, 0xff4400, 18);
+        emitParticles(t.x, 0.5, t.z, 0xff6600, 10);
+        g.shake = 22; g.combo = 0; g.lives--;
+        if (g.lives <= 0) { triggerGameOver3D(); return; }
+        g.invincible = 130 / 60; g.v *= 0.25; g.lateralSpeed = 0;
+        showToast('💥 NABRAK! ' + g.lives + ' nyawa tersisa', '#ff3300');
+      }
+    } else {
+      if (t.scraped) t.scraped = false;
+      if (!t.nm && rawOvX > -1.5 && rawOvZ > -1.5 && t.z > -40 && t.z < 4) {   // near miss (sekali per mobil)
+        t.nm = true; g.combo = Math.min(g.combo + 1, 20); g.comboT = 1.5;
+        g.score += 60 * g.combo; state.coins++; g.earned++;
+        if (g.combo >= 2) showToast('🔥 NEAR MISS x' + g.combo, '#ff8800');
+      }
+    }
+  }
+
+  // koin
+  for (let i = g.coins.length - 1; i >= 0; i--) {
+    const c = g.coins[i];
+    c.z += g.ups * dt;
+    c.mesh.position.z = c.z; c.mesh.rotation.z += 2.4 * dt;
+    c.mesh.position.y = 0.7 + Math.sin(g.time * 4.8 + c.ph) * 0.2;
+    if (c.z > 10) { scene3D.remove(c.mesh); W.coinPool.push(c.mesh); g.coins.splice(i, 1); continue; }
+    if (Math.abs(g.px - c.x) < 1.2 && Math.abs(c.z) < 1.2 + g.pL * 0.25) {
+      emitParticles(c.x, 0.8, c.z, 0xffd200, 6);
+      state.coins += 5; g.earned += 5; g.score += 100; showToast('+5 💰', '#ffd200');
+      scene3D.remove(c.mesh); W.coinPool.push(c.mesh); g.coins.splice(i, 1);
+    }
+  }
+
+  // partikel
+  for (const p of W.particles) {
+    if (!p.active) continue;
+    p.mesh.position.x += p.vx * s; p.mesh.position.y += p.vy * s; p.mesh.position.z += p.vz * s + g.ups * dt;
+    p.vy -= 0.008 * s; p.life -= 0.04 * s;
+    p.mesh.material.opacity = Math.max(0, p.life);
+    if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
+  }
+
+  g.hudT -= dt;
+  if (g.hudT <= 0) { g.hudT = 0.08; updateHUD(false); }
+}
+
+function setText(el, key, val) { const h = game.hud; if (h[key] !== val) { h[key] = val; el.textContent = val; } }
+function updateHUD(force) {
+  const g = game; if (!H) return;
+  if (force) g.hud = {};
+  setText(H.speed, 's', g.kmh);
+  setText(H.dist, 'd', g.distance.toFixed(2) + ' KM');
+  setText(H.score, 'sc', Math.floor(g.score).toLocaleString());
+  setText(H.coins, 'c', state.coins.toLocaleString());
+  setText(H.gear, 'g', g.gear);
+  const nw = (g.nitro / g.maxNitro * 100).toFixed(0) + '%';
+  if (g.hud.n !== nw) { g.hud.n = nw; H.nitro.style.width = nw; }
+  const gasOn = g.isGassing && !g.isBraking, brkOn = g.isBraking;
+  if (g.hud.go !== gasOn) { g.hud.go = gasOn; H.gas.style.opacity = gasOn ? '1' : '0.25'; H.gas.style.background = gasOn ? 'rgba(0,220,60,0.28)' : 'rgba(0,200,60,0.08)'; }
+  if (g.hud.bo !== brkOn) { g.hud.bo = brkOn; H.brake.style.opacity = brkOn ? '1' : '0.25'; H.brake.style.background = brkOn ? 'rgba(232,0,29,0.32)' : 'rgba(232,0,29,0.08)'; }
+  const gr = (brkOn ? 0 : Math.min(1, g.v / g.maxKmh) * 100).toFixed(0) + '%', br = (brkOn ? Math.min(100, g.brakeKmhS / 120 * 10) : 0).toFixed(0) + '%';
+  if (g.hud.gb !== gr) { g.hud.gb = gr; H.gasBar.style.width = gr; }
+  if (g.hud.bb !== br) { g.hud.bb = br; H.brakeBar.style.width = br; }
+  const cOn = g.combo >= 2;
+  if (cOn) { const ct = '🔥 COMBO x' + g.combo; if (g.hud.ct !== ct) { g.hud.ct = ct; H.combo.textContent = ct; } }
+  if (g.hud.co !== cOn) { g.hud.co = cOn; H.combo.classList.toggle('show', cOn); }
+}
+
+// Kamera chase: di BELAKANG & sedikit di atas mobil, menghadap ke arah jalan,
+// sehingga yang terlihat adalah bagian belakang mobil (seperti foto Hilux tampak belakang).
+function updateCamera(rdt, snap) {
+  const g = game, s = rdt * 60;
+  const tx = g.px * 0.7 + g.lateralSpeed * 0.08;
+  const ty = g.camBaseY + (g.v / 300) * 0.7 + (g.nitroActive ? 0.3 : 0);
+  const tz = g.camBaseZ - (g.v / 400) * 0.8;
+  if (snap) { g.camX = tx; g.camY = ty; } else { g.camX += (tx - g.camX) * damp(0.12, s); g.camY += (ty - g.camY) * damp(0.06, s); }
+  const sx = g.shake > 0.05 ? (Math.random() - 0.5) * g.shake * 0.06 : 0;
+  const sy = g.shake > 0.05 ? (Math.random() - 0.5) * g.shake * 0.03 : 0;
+  camera3D.position.set(g.camX + sx, g.camY + sy, tz);
+  camera3D.lookAt(g.px * 0.35, 1.25, -36 - (g.v / 300) * 14);
+  const targetFOV = 62 + (g.v / 300) * 16 + (g.nitroActive ? 5 : 0);
+  if (Math.abs(targetFOV - camera3D.fov) > 0.02) { camera3D.fov += (targetFOV - camera3D.fov) * damp(0.08, s); camera3D.updateProjectionMatrix(); }
+}
+
+function triggerGameOver3D() {
+  const g = game;
+  g.over = true;
+  const isRecord = g.score > state.bestScore;
+  if (isRecord) state.bestScore = Math.floor(g.score);
+  if (g.distance > state.bestDist) state.bestDist = g.distance;
+  saveState();
+  document.getElementById('goStats').innerHTML = `<div style="font-family:Orbitron,monospace;font-size:13px;line-height:2.2;"><div>SKOR: <b style="color:#ffd200">${Math.floor(g.score).toLocaleString()}</b></div><div>JARAK: <b style="color:#00ff88">${g.distance.toFixed(2)} KM</b></div><div>KECEPATAN: <b style="color:#ff6a00">${g.kmh} KM/H</b></div><div>KOIN: <b style="color:#ffd200">+${g.earned}</b></div>${isRecord ? '<div style="color:#ff4400;font-size:16px;">🏆 REKOR BARU!</div>' : ''}</div>`;
+  document.getElementById('gameOverOverlay').classList.add('active');
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+let toastTimer = null;
+function showToast(msg, color = '#e8001d') {
+  const t = document.getElementById('gameToast');
+  t.textContent = msg; t.style.borderColor = color; t.style.color = color;
+  t.classList.add('show'); clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1200);
+}
+function setKey(k, v) {
+  mobileKeys[k] = v;
+  const map = { left: 'btnLeft', right: 'btnRight', nitro: 'btnNitro', gas: 'btnGas', brake: 'btnBrake' };
+  const el = document.getElementById(map[k]);
+  if (el) el.classList.toggle('pressed', v);
+}
+function clearInputs() { Object.keys(keys).forEach(k => keys[k] = false); Object.keys(mobileKeys).forEach(k => setKey(k, false)); }
+
+const GAME_KEYS = new Set(['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' ', 'a', 'd', 'w', 's']);
+const gameActive = () => document.getElementById('gameScreen').classList.contains('active');
+document.addEventListener('keydown', e => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
+  keys[k] = true;
+  if (gameActive()) {
+    if ((k === 'escape' || k === 'p') && !game.over && !e.repeat) togglePause();
+    if (GAME_KEYS.has(k)) e.preventDefault();             // jangan blokir F5/F12/Ctrl+R dll
+  }
+});
+document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+window.addEventListener('blur', clearInputs);
+window.addEventListener('mouseup', () => Object.keys(mobileKeys).forEach(k => mobileKeys[k] && setKey(k, false)));
+window.addEventListener('touchend', e => { if (e.touches.length === 0) Object.keys(mobileKeys).forEach(k => mobileKeys[k] && setKey(k, false)); });
+window.addEventListener('touchcancel', clearInputs);
+document.addEventListener('visibilitychange', () => { if (document.hidden && gameActive() && !game.over && !game.paused) togglePause(); });
+
+function startGame() { showScreen('gameScreen'); initGame3D(); }
+function restartGame() { document.getElementById('gameOverOverlay').classList.remove('active'); initGame3D(); }
+function endGame() {
+  stopLoop(); game.over = true; game.paused = false;
+  document.getElementById('pauseOverlay').classList.remove('active');
+  document.getElementById('gameOverOverlay').classList.remove('active');
+  saveState(); showScreen('menuScreen');
+}
+function togglePause() {
+  if (!W.ready || game.over) return;
+  game.paused = !game.paused;
+  document.getElementById('pauseOverlay').classList.toggle('active', game.paused);
+  if (game.paused) { stopLoop(); saveState(); clearInputs(); }
+  else startLoop();                                       // startLoop selalu membatalkan loop lama dulu
+}
+
+window.addEventListener('resize', () => {
+  if (!W.ready) return;
+  renderer3D.setSize(window.innerWidth, window.innerHeight, false);
+  camera3D.aspect = window.innerWidth / window.innerHeight; camera3D.updateProjectionMatrix();
+  if (!running) renderer3D.render(scene3D, camera3D);
+});
+
+// ============================================================
+// BOOT
+// ============================================================
+updateMenuStats();
+
+</script>
+</body>
+</html>
